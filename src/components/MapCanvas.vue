@@ -15,6 +15,9 @@
 
     <!-- the canvas -->
     <div class="stage-parent">
+      <v-row>
+        <v-col cols="auto" class="ml-auto"> <MapLegend /> </v-col>
+      </v-row>
       <v-stage
         :config="configStage"
         ref="stage"
@@ -24,12 +27,11 @@
       >
         <v-layer>
           <v-rect :config="configBackground" ref="background"></v-rect>
-          <v-rect
+          <v-image
+            ref="rect"
             v-for="item in fridges"
             :key="item.id"
             :config="item"
-            @mouseenter="addMousePointerStyle"
-            @mouseleave="removeMousePointerStyle"
             @mouseover="openShapeInfoPopup"
             @mouseout="closeInfoPopup"
             @contextmenu="openShapeContextMenu"
@@ -47,25 +49,9 @@
         :style="{
           left: infoPopup.left,
           top: infoPopup.top,
-          width: '200px',
         }"
       >
-        <div>
-          <v-card color="light">
-            <v-card-title>{{ selectedShape.name }}</v-card-title>
-            <v-card-text>
-              <div>Consumption: {{ selectedShape.consumption }}</div>
-              <div>Temperature: {{ selectedShape.temperature }}°C</div>
-              <div>Ambience: {{ selectedShape.ambience }}</div>
-              <div>Soufflage: {{ selectedShape.soufflage }}</div>
-              <v-progress-linear
-                :value="selectedShape.doors"
-                color="green"
-                height="5"
-              ></v-progress-linear>
-            </v-card-text>
-          </v-card>
-        </div>
+        <MapInfoPopup :selected-shape="selectedShape"></MapInfoPopup>
       </div>
 
       <div
@@ -73,16 +59,18 @@
         :style="{
           left: shapeContextMenu.left,
           top: shapeContextMenu.top,
-          width: '100px',
         }"
         class="interaction-menu"
       >
         <v-list>
-          <v-list-item link @click="handleDelete">
-            <v-list-item-title>Delete </v-list-item-title>
+          <v-list-item link @click="goToDetailView">
+            <v-list-item-title>Voir Meuble</v-list-item-title>
           </v-list-item>
-          <v-list-item link>
-            <v-list-item-title>Edit</v-list-item-title>
+          <v-list-item link @click="handleEdit">
+            <v-list-item-title>Modifier</v-list-item-title>
+          </v-list-item>
+          <v-list-item link @click="handleDelete">
+            <v-list-item-title>Supprimer</v-list-item-title>
           </v-list-item>
         </v-list>
       </div>
@@ -92,13 +80,15 @@
         :style="{
           left: backgroundContextMenu.left,
           top: backgroundContextMenu.top,
-          width: 'px',
         }"
         class="interaction-menu"
       >
         <v-list>
-          <v-list-item link @click="addFridge">
-            <v-list-item-title>Ajouter meuble </v-list-item-title>
+          <v-list-item link @click="addFridge('freezer')">
+            <v-list-item-title>Ajouter Congélateur</v-list-item-title>
+          </v-list-item>
+          <v-list-item link @click="addFridge('fridge')">
+            <v-list-item-title>Ajouter Réfrigérateur</v-list-item-title>
           </v-list-item>
         </v-list>
       </div>
@@ -108,11 +98,27 @@
 
 <script>
 import { mockData } from "../data/mock_data.js";
+import Konva from "konva";
+import MapLegend from "./MapLegend.vue";
+import MapInfoPopup from "./MapInfoPopup.vue";
 export default {
+  components: { MapLegend, MapInfoPopup },
   data() {
     let height = window.innerHeight;
     let width = window.innerWidth;
     return {
+      imgConfig: {
+        x: 10,
+        y: 10,
+        height: 100,
+        width: 100,
+        image: null,
+        filters: [Konva.Filters.RGB],
+        red: 256,
+        blue: 0,
+        green: 0,
+        draggable: true,
+      },
       configStage: {
         width,
         height,
@@ -124,6 +130,8 @@ export default {
         width,
         height,
         name: "background",
+        strokeWidth: 1,
+        stroke: "black",
       },
       selectedShapeId: null,
       shops: [
@@ -142,23 +150,47 @@ export default {
       backgroundContextMenu: { show: false, left: 0, top: 0 },
       shapeContextMenu: { show: false, left: 0, top: 0 },
       infoPopup: { show: false, left: 0, top: 0 },
+      image: null,
+      fridgeImages: {
+        type1: {
+          url: "http://cdn.onlinewebfonts.com/svg/img_482164.png",
+          imageObj: null,
+        },
+        type2: {
+          url: "https://www.freeiconspng.com/thumbs/fridge-icon/fridge-icon-27.png",
+          imageObj: null,
+        },
+      },
     };
   },
   computed: {
     fridges() {
+      // random between 1 and 0
       return this.mockData
         .map((item) => {
           let name = "rect" + item.id;
           return {
-            ...item,
-            rotation: 0,
+            rotation: item.rotation ?? 0,
             x: item.x,
             y: item.y,
-            opacity: 0.8,
+            opacity: 0.65,
             cornerRadius: 5,
+            image:
+              item.type == "freezer"
+                ? this.fridgeImages.type2.imageObj
+                : this.fridgeImages.type1.imageObj,
+            fill: item.fill,
+            strokeWidth: 100,
+            aspectRatio: true,
+            // image_url: "https://konvajs.org/assets/yoda.jpg",
             width: item.width,
             height: item.height,
-            fill: item.fill,
+            scaleX: item.scaleX ?? 1,
+            scaleY: item.scaleY ?? 1,
+            // filters: [Konva.Filters.RGB],
+            // red: item.fill == "red" ? 256 : 0,
+            // blue: item.fill == "yellow" ? 256 : 0,
+            // green: item.fill == "green" ? 256 : 0,
             name: name,
             draggable: true,
             id: item.id,
@@ -176,7 +208,6 @@ export default {
   },
   methods: {
     // INTERACTIONS
-
     // opens the context menu for an object
     openShapeContextMenu(e) {
       if (e.evt.button === 2) {
@@ -224,27 +255,37 @@ export default {
       this.mockData = this.mockData.filter(
         (item) => item.id !== this.selectedShapeId
       );
+      localStorage.setItem("mockData", JSON.stringify(this.mockData));
       this.closeAllInteraction();
     },
-    addFridge() {
+    handleEdit() {
+      this.$router.push({
+        name: "fridgeEdit",
+        params: { id: this.selectedShapeId },
+      });
+    },
+    addFridge(type) {
       const colors = ["yellow", "red", "green", "grey"];
       let stage = this.$refs.stage.getStage();
-      this.mockData.push({
+      let newFridge = {
         rotation: 0,
         x: stage.getPointerPosition().x,
         y: stage.getPointerPosition().y,
-        width: 50,
-        height: 50,
+        width: 25,
+        height: 25,
         fill: colors[Math.floor(Math.random() * colors.length)], // select a random color from the colors array
         name: "fridge" + this.mockData.length,
-        id: this.mockData.length + 1,
+        type,
+        //add random id
+        id: this.mockData.length * Math.floor(Math.random() * 10000),
         image_id: this.selectedShop.id,
         draggable: true,
         temperature: +(Math.random() * 10 + 5).toFixed(1), // random temperature rounded to 1 decimal place
         soufflage: +(Math.random() * 10 + 5).toFixed(1), // random soufflage rounded to 1 decimal place
         consumption: +(Math.random() * 10 + 5).toFixed(1) + "Kwh", // random consumption rounded to 1 decimal place with kwh suffix
         ambience: +(Math.random() * 10 + 5).toFixed(1), // random ambience rounded to 1 decimal place
-      });
+      };
+      this.mockData.push(newFridge);
       localStorage.setItem("mockData", JSON.stringify(this.mockData));
       //select shape with transform
       this.selectedShapeId = this.mockData[this.mockData.length - 1].id;
@@ -259,8 +300,7 @@ export default {
       // find element in our state
       // update the state
       this.mockData = this.mockData.map((item) => {
-        if (item.id === this.selectedShapeId) {
-          console.log(item.width, e.target.width());
+        if (item.id === e.target.id()) {
           return {
             ...item,
             x: e.target.x(),
@@ -288,7 +328,6 @@ export default {
     },
     handleStageMouseDown(e) {
       // clicked on stage - clear selection
-
       if (e.target === e.target.getStage()) {
         this.selectedShapeId = null;
         this.updateTransformer();
@@ -302,26 +341,29 @@ export default {
         return;
       }
 
+      // clicked on background image -> clear all interactions and if right click open context menu
       const clickedOnBackground = e.target.name() === "background";
       this.closeAllInteraction();
       if (clickedOnBackground) {
+        this.selectedShapeId = null;
         if (e.evt.button === 2) {
           this.openStageContextMenu();
           return;
         }
       }
-      const currentId = e.target.id();
-      // find clicked rect by its name
 
-      const rect = this.fridges.find((r) => r.id === currentId);
-      if (rect) {
+      const currentId = e.target.id();
+
+      // find clicked shape by its id
+      const shape = this.fridges.find((s) => s.id === currentId);
+      if (shape) {
         this.selectedShapeId = currentId;
       } else {
-        this.selectedShapeId = 0;
+        this.selectedShapeId = null;
       }
+      this.updateTransformer();
       this.closeInfoPopup();
       this.closeShapeMenu();
-      this.updateTransformer();
     },
 
     updateTransformer() {
@@ -333,8 +375,14 @@ export default {
         transformerNode.nodes([]);
         return;
       }
-      const shapeName =
-        this.fridges.find((item) => item.id === selectedShapeId).name ?? "";
+
+      const shape = this.fridges.find((item) => item.id === selectedShapeId);
+      let shapeName;
+      if (shapeName == shape) {
+        return;
+      } else {
+        shapeName = shape.name;
+      }
 
       const selectedNode = stage.findOne("." + shapeName);
       // do nothing if selected node is already attached
@@ -378,11 +426,22 @@ export default {
         stage.width(imageObj.width);
         stage.height(imageObj.height);
         background.fillPatternRepeat("no-repeat");
+        this.closeAllInteraction();
       };
       background.zIndex(0);
       imageObj.src = this.selectedShop.url;
     },
 
+    // Navigation
+
+    goToDetailView() {
+      this.$router.push({
+        name: "fridgeDetail",
+        params: {
+          id: this.selectedShapeId,
+        },
+      });
+    },
     //HELPERS
     setItemVisible(item) {
       let stage = this.$refs.stage.getStage();
@@ -391,15 +450,29 @@ export default {
       item.left = containerRect.left + stage.getPointerPosition().x - 10 + "px";
       item.top = containerRect.top + stage.getPointerPosition().y - 10 + "px";
     },
+    loadImages() {
+      for (let key of Object.keys(this.fridgeImages)) {
+        const imageObj = new Image();
+        imageObj.src = this.fridgeImages[key].url;
+        imageObj.onload = () => {
+          this.fridgeImages[key].imageObj = imageObj;
+        };
+      }
+    },
   },
   mounted() {
     this.setBackground();
   },
+  updated() {},
+  created() {
+    // Konva needs images to be loaded before they are used
+    this.loadImages();
+  },
   watch: {
+    // watch for image change
     activeShop() {
       this.setBackground();
     },
-    // watch for image change
   },
 };
 </script>
