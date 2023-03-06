@@ -23,6 +23,7 @@
               v-model="email"
               outlined
               label="Email"
+              prepend-icon="mdi-account"
               required
               :error-messages="emailErrors"
             ></v-text-field>
@@ -30,6 +31,7 @@
               v-model="password"
               outlined
               label="Mot de passe"
+              prepend-icon="mdi-lock"
               :type="passwordVisible ? 'text' : 'password'"
               required
               :append-icon="passwordVisible ? 'mdi-eye-off' : 'mdi-eye'"

@@ -31,6 +31,14 @@ const routes = [
     name: "login",
     component: () => import("../views/LoginView.vue"),
   },
+  {
+    // path: "*",
+    path: "/:catchAll(.*)",
+    redirect: "/home",
+    // meta: {
+    //   requiresAuth: false,
+    // },
+  },
 ];
 
 const router = new VueRouter({

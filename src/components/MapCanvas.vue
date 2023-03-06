@@ -32,8 +32,11 @@
             v-for="item in fridges"
             :key="item.id"
             :config="item"
+            @mouseleave="removeCursorStyle"
+            @mouseenter="addCursorStyle"
             @mouseover="openShapeInfoPopup"
             @mouseout="closeInfoPopup"
+            @dblclick="goToDetailView"
             @contextmenu="openShapeContextMenu"
             @dragend="handleDragEnd"
             @transformend="handleTransformEnd"
@@ -248,6 +251,14 @@ export default {
       this.closeBackgroundMenu();
       this.closeInfoPopup();
       transformerNode.nodes([]);
+    },
+    addCursorStyle() {
+      const stage = this.$refs.stage.getStage();
+      stage.container().style.cursor = "pointer";
+    },
+    removeCursorStyle() {
+      const stage = this.$refs.stage.getStage();
+      stage.container().style.cursor = "default";
     },
 
     // DATA/PERSISTENCE
